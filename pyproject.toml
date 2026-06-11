@@ -1,0 +1,21 @@
+[project]
+name = "understory"
+version = "0.1.0"
+description = "A Model Context Protocol (MCP) server for local Ollama subagents."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "ollama>=0.3.3",
+    "uvicorn>=0.30.0",
+    "starlette>=0.38.0",
+]
+
+[tool.uv]
+managed = true
+package = false
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.16",
+]
