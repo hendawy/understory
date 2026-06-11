@@ -3,11 +3,12 @@ name = "understory"
 version = "0.1.0"
 description = "A Model Context Protocol (MCP) server for local Ollama subagents."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "mcp[cli]>=1.0.0",
     "ollama>=0.3.3",
     "uvicorn>=0.30.0",
+    "uvloop>=0.19.0; sys_platform != 'win32'",
     "starlette>=0.38.0",
 ]
 
@@ -18,4 +19,23 @@ package = false
 [dependency-groups]
 dev = [
     "ruff>=0.15.16",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ty>=0.0.1a1",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests/unit"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+exclude = ["tests/scratch"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ty.src]
+include = ["src", "tests/unit"]
