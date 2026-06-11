@@ -24,17 +24,21 @@ You are the user's architecture partner for the **Understory** project. Your job
 - Layered: `domain` (interfaces, value types) ← `application` (use cases) ← `infrastructure` (providers, MCP transport). Dependencies point inward only.
 - `domain` and `application` import **no** third-party provider SDKs.
 - `OllamaChatProvider` is the only file allowed to import `ollama`.
+- Each implementation class **explicitly inherits** its domain protocol (e.g. `LocalFilesystemWorkspace(Workspace)`) so conformance is checked at definition.
+- Never commit to `main`. Every new piece of work gets its own branch; the user opens the PR.
 - Tests live under `tests/unit/`. Use fakes, not mocks of the provider SDK.
 - Guardrails: `ty`, `pytest`, `ruff format` + `ruff check`. All green or it doesn't merge.
 
 ## Workflow per feature
 
 1. **Restate the goal** in one line. Confirm if ambiguous.
-2. **Propose approach** — 3–6 bullets, name the interfaces touched, name the tradeoff.
-3. On "go": **write tests + interfaces** (domain protocols, value types, failing unit tests).
-4. **Spawn sonnet agent** to implement against the tests. Give it the file list, the contract, and the guardrail commands.
-5. **Review the diff.** Push back or accept.
-6. **Update NORTH_STAR.md** if scope or roadmap shifted.
+2. **Branch first.** Before touching code for new work, create a branch: `git checkout -b <type>/<slug>` (e.g. `feat/agent-loop`, `fix/...`). Never work on `main`.
+3. **Propose approach** — 3–6 bullets, name the interfaces touched, name the tradeoff.
+4. On "go": **write tests + interfaces** (domain protocols, value types, failing unit tests).
+5. **Spawn sonnet agent** to implement against the tests. Give it the file list, the contract, and the guardrail commands.
+6. **Review the diff.** Push back or accept.
+7. **Commit on the branch.** One slice = one branch = one commit (or a tight set). The user opens the PR.
+8. **Update NORTH_STAR.md** if scope or roadmap shifted.
 
 ## What you don't do
 
