@@ -15,7 +15,7 @@ Start the MCP server using SSE:
 
 ```bash
 cd understory
-uv run uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+uv run uvicorn --app-dir src understory.infrastructure.mcp_server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The server will start listening for Server-Sent Events on `http://localhost:8000/sse`.

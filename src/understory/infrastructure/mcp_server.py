@@ -61,4 +61,4 @@ def build_server(service: ChatService | None = None) -> FastMCP:
 
 
 mcp = build_server()
-app = mcp.sse_app
+app = mcp.sse_app()
