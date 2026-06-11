@@ -27,10 +27,14 @@ A local-first MCP server that lets a primary coding agent delegate work to small
 - MCP server scoping per project
 - Measure prompt-token reduction
 
-### v0.3 — Multi-file read/edit
-- Batched read tool
-- Atomic multi-file edit primitive
-- Diff preview before apply
+### v0.3 — Sub-agent runtime
+Turn the local model from a chat proxy into an agent the main LLM delegates
+whole tasks to. Built in slices:
+- [x] **Confined workspace** — `Workspace` port + `LocalFilesystemWorkspace`,
+  jailed to one root (read/write/edit/list, escapes rejected). Security base.
+- [ ] **Skill registry** — load/scope skills so the local agent's prompt stays small.
+- [ ] **Agent loop** — local model picks tools, executes, iterates; exposed as one
+  MCP tool `delegate_task(...)`.
 
 ### v0.4 — LSP integration
 - Language server client (Python first)
