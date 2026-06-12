@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from mcp.server.fastmcp import FastMCP
 
+from understory.application.agent_runner import AgentRunner
 from understory.application.chat_service import ChatService
+from understory.application.workspace_tools import (
+    EditTool,
+    ListDirTool,
+    ReadTool,
+    WriteTool,
+)
+from understory.infrastructure.local_filesystem import LocalFilesystemWorkspace
 from understory.infrastructure.memory_store import InMemoryConversationStore
 from understory.infrastructure.ollama_provider import OllamaChatProvider
 
@@ -56,6 +66,29 @@ def build_server(service: ChatService | None = None) -> FastMCP:
             return f"Available models: {', '.join(models)}"
         except Exception as e:
             return f"Error listing models: {e}"
+
+    @mcp.tool()
+    async def delegate_task(
+        task: str,
+        model: str,
+        workspace_path: str,
+        max_steps: int = 10,
+    ) -> str:
+        """Delegate a task to a local model that can read/write/edit/list files,
+        confined to workspace_path. Returns the model's final answer."""
+        try:
+            workspace = LocalFilesystemWorkspace(Path(workspace_path))
+            tools = [
+                ReadTool(workspace),
+                WriteTool(workspace),
+                EditTool(workspace),
+                ListDirTool(workspace),
+            ]
+            runner = AgentRunner(service.provider, tools, max_steps=max_steps)
+            result = await runner.run(model, task)
+            return f"[{result.status} in {result.steps} steps] {result.output}"
+        except Exception as e:
+            return f"Error running task: {e}"
 
     return mcp
 
