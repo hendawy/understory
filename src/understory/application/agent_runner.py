@@ -20,11 +20,12 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from understory.domain.chat import ChatProvider, Message, ModelName
 from understory.domain.tool import Tool, ToolError
+from understory.domain.trace import Step
 from understory.domain.workspace import WorkspaceError
 
 
@@ -33,6 +34,7 @@ class AgentResult:
     status: Literal["done", "max_steps"]
     output: str
     steps: int
+    transcript: Sequence[Step] = field(default_factory=tuple)
 
 
 class AgentRunner:
@@ -70,11 +72,14 @@ class AgentRunner:
 
         steps = 0
         last_text = ""
+        transcript: list[Step] = []
+        _FORMAT_ERROR = 'Error: reply with a single JSON object {"tool": ...} or {"done": ...}'
 
         while steps < self._max_steps:
             reply = await self._provider.complete(model, messages)
             messages.append(reply)
             last_text = reply.content
+            index = steps
             steps += 1
 
             # Parse the reply.
@@ -83,17 +88,14 @@ class AgentRunner:
                 if not isinstance(payload, dict):
                     raise TypeError("not a JSON object")
             except (json.JSONDecodeError, TypeError):
-                messages.append(
-                    Message(
-                        "user",
-                        'Error: reply with a single JSON object {"tool": ...} or {"done": ...}',
-                    )
-                )
+                messages.append(Message("user", _FORMAT_ERROR))
+                transcript.append(Step(index, reply.content, "error", observation=_FORMAT_ERROR))
                 continue
 
             # Done branch.
             if "done" in payload:
-                return AgentResult("done", str(payload["done"]), steps)
+                transcript.append(Step(index, reply.content, "done"))
+                return AgentResult("done", str(payload["done"]), steps, tuple(transcript))
 
             # Tool-call branch.
             if "tool" in payload:
@@ -105,27 +107,43 @@ class AgentRunner:
                     or tool_name not in self._tools
                     or not isinstance(tool_args, dict)
                 ):
-                    messages.append(
-                        Message(
-                            "user",
-                            'Error: reply with a single JSON object {"tool": ...} or {"done": ...}',
-                        )
+                    messages.append(Message("user", _FORMAT_ERROR))
+                    transcript.append(
+                        Step(index, reply.content, "error", observation=_FORMAT_ERROR)
                     )
                     continue
 
                 try:
                     result = self._tools[tool_name].run(tool_args)
-                    messages.append(Message("user", f"Observation: {result}"))
+                    observation = f"Observation: {result}"
+                    messages.append(Message("user", observation))
+                    transcript.append(
+                        Step(
+                            index,
+                            reply.content,
+                            "tool",
+                            tool=tool_name,
+                            args=tool_args,
+                            observation=observation,
+                        )
+                    )
                 except (ToolError, WorkspaceError) as exc:
-                    messages.append(Message("user", f"Error: {exc}"))
+                    observation = f"Error: {exc}"
+                    messages.append(Message("user", observation))
+                    transcript.append(
+                        Step(
+                            index,
+                            reply.content,
+                            "tool",
+                            tool=tool_name,
+                            args=tool_args,
+                            observation=observation,
+                        )
+                    )
                 continue
 
             # Neither "tool" nor "done" key present.
-            messages.append(
-                Message(
-                    "user",
-                    'Error: reply with a single JSON object {"tool": ...} or {"done": ...}',
-                )
-            )
+            messages.append(Message("user", _FORMAT_ERROR))
+            transcript.append(Step(index, reply.content, "error", observation=_FORMAT_ERROR))
 
-        return AgentResult("max_steps", last_text, self._max_steps)
+        return AgentResult("max_steps", last_text, self._max_steps, tuple(transcript))

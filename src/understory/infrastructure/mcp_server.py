@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
+from starlette.applications import Starlette
+from starlette.routing import Mount
 
 from understory.application.agent_runner import AgentRunner
 from understory.application.chat_service import ChatService
@@ -14,16 +17,28 @@ from understory.application.workspace_tools import (
     ReadTool,
     WriteTool,
 )
+from understory.domain.trace import Session, TraceStore
 from understory.infrastructure.local_filesystem import LocalFilesystemWorkspace
 from understory.infrastructure.memory_store import InMemoryConversationStore
+from understory.infrastructure.memory_trace_store import InMemoryTraceStore
 from understory.infrastructure.ollama_provider import OllamaChatProvider
+from understory.infrastructure.web import build_web_app
 
 
-def build_server(service: ChatService | None = None) -> FastMCP:
+def build_server(
+    service: ChatService | None = None,
+    trace_store: TraceStore | None = None,
+) -> FastMCP:
+    """Build and return the FastMCP server.
+
+    Pass *trace_store* to share a specific store (so the web UI and the
+    delegate_task tool see the same sessions); one is created otherwise.
+    """
     service = service or ChatService(
         provider=OllamaChatProvider(),
         store=InMemoryConversationStore(),
     )
+    store = trace_store or InMemoryTraceStore()
 
     mcp = FastMCP("understory")
 
@@ -86,12 +101,37 @@ def build_server(service: ChatService | None = None) -> FastMCP:
             ]
             runner = AgentRunner(service.provider, tools, max_steps=max_steps)
             result = await runner.run(model, task)
-            return f"[{result.status} in {result.steps} steps] {result.output}"
+            sid = uuid.uuid4().hex
+            session = Session(
+                id=sid,
+                model=model,
+                task=task,
+                workspace_path=workspace_path,
+                status=result.status,
+                steps=result.transcript,
+            )
+            store.save(session)
+            return f"[{result.status} in {result.steps} steps] (session {sid}) {result.output}"
         except Exception as e:
             return f"Error running task: {e}"
 
     return mcp
 
 
-mcp = build_server()
-app = mcp.sse_app()
+def _build_app_with_store(mcp: FastMCP, store: TraceStore) -> Starlette:
+    """Return a single ASGI app: trace UI at ``/trace``, MCP SSE at ``/``."""
+    web_app = build_web_app(store)
+    sse_app = mcp.sse_app()
+    return Starlette(
+        routes=[
+            Mount("/trace", app=web_app),
+            Mount("/", app=sse_app),
+        ]
+    )
+
+
+# Module-level singletons — one shared store so trace UI and MCP tool are
+# in the same process and see the same sessions.
+_store = InMemoryTraceStore()
+mcp = build_server(trace_store=_store)
+app = _build_app_with_store(mcp, _store)
