@@ -1,4 +1,8 @@
-"""Chat domain — provider-agnostic interfaces and value types."""
+"""Chat domain — provider-agnostic interfaces and value types.
+
+Interfaces are ``Protocol``s on purpose (not ABCs); implementations also inherit
+them for definition-time checking. Rationale: docs/decisions.md.
+"""
 
 from __future__ import annotations
 
