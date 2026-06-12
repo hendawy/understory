@@ -17,7 +17,7 @@ from understory.application.workspace_tools import (
     ReadTool,
     WriteTool,
 )
-from understory.domain.trace import Session, TraceStore
+from understory.domain.trace import Session, TraceStore, default_title
 from understory.infrastructure.local_filesystem import LocalFilesystemWorkspace
 from understory.infrastructure.memory_store import InMemoryConversationStore
 from understory.infrastructure.memory_trace_store import InMemoryTraceStore
@@ -88,6 +88,7 @@ def build_server(
         model: str,
         workspace_path: str,
         max_steps: int = 10,
+        title: str | None = None,
     ) -> str:
         """Delegate a task to a local model that can read/write/edit/list files,
         confined to workspace_path. Returns the model's final answer."""
@@ -104,6 +105,7 @@ def build_server(
             sid = uuid.uuid4().hex
             session = Session(
                 id=sid,
+                title=title or default_title(task),
                 model=model,
                 task=task,
                 workspace_path=workspace_path,

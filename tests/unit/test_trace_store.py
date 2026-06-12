@@ -2,19 +2,32 @@
 
 from __future__ import annotations
 
-from understory.domain.trace import Session, Step
+from understory.domain.trace import Session, Step, default_title
 from understory.infrastructure.memory_trace_store import InMemoryTraceStore
 
 
 def _session(sid: str) -> Session:
     return Session(
         id=sid,
+        title="Do thing",
         model="gemma4:e2b",
         task="do thing",
         workspace_path="/tmp/ws",
         status="done",
         steps=(Step(0, '{"done": "ok"}', "done"),),
     )
+
+
+def test_default_title_uses_first_nonempty_line() -> None:
+    assert default_title("\n  Create hello.md  \nmore") == "Create hello.md"
+
+
+def test_default_title_truncates_to_60_chars() -> None:
+    assert default_title("x" * 200) == "x" * 60
+
+
+def test_default_title_blank_is_untitled() -> None:
+    assert default_title("   \n  ") == "untitled"
 
 
 def test_save_then_get() -> None:
