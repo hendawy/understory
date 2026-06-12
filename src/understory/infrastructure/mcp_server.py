@@ -7,7 +7,9 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
-from starlette.routing import Mount
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
+from starlette.routing import Mount, Route
 
 from understory.application.agent_runner import AgentRunner
 from understory.application.chat_service import ChatService
@@ -120,12 +122,18 @@ def build_server(
     return mcp
 
 
+async def _redirect_to_trace(_request: Request) -> RedirectResponse:
+    """Redirect the bare ``/trace`` to ``/trace/`` so the mount root resolves."""
+    return RedirectResponse("/trace/")
+
+
 def _build_app_with_store(mcp: FastMCP, store: TraceStore) -> Starlette:
     """Return a single ASGI app: trace UI at ``/trace``, MCP SSE at ``/``."""
     web_app = build_web_app(store)
     sse_app = mcp.sse_app()
     return Starlette(
         routes=[
+            Route("/trace", _redirect_to_trace),
             Mount("/trace", app=web_app),
             Mount("/", app=sse_app),
         ]
