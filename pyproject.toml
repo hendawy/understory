@@ -35,7 +35,7 @@ src = ["src", "tests"]
 exclude = ["tests/scratch"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+select = ["E", "F", "I", "UP", "B", "SIM", "W605"]
 
 [tool.ty.src]
 include = ["src", "tests/unit"]

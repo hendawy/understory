@@ -32,9 +32,10 @@ Turn the local model from a chat proxy into an agent the main LLM delegates
 whole tasks to. Built in slices:
 - [x] **Confined workspace** — `Workspace` port + `LocalFilesystemWorkspace`,
   jailed to one root (read/write/edit/list, escapes rejected). Security base.
+- [x] **Agent loop** — local model picks tools (JSON protocol), executes, iterates,
+  recovers from malformed output; exposed as MCP tool `delegate_task(task, model,
+  workspace_path, max_steps)`.
 - [ ] **Skill registry** — load/scope skills so the local agent's prompt stays small.
-- [ ] **Agent loop** — local model picks tools, executes, iterates; exposed as one
-  MCP tool `delegate_task(...)`.
 
 ### v0.4 — LSP integration
 - Language server client (Python first)
