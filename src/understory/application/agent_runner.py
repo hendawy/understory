@@ -37,6 +37,32 @@ class AgentResult:
     transcript: Sequence[Step] = field(default_factory=tuple)
 
 
+def action_schema(tool_names: Sequence[str]) -> dict[str, object]:
+    """Provider-neutral JSON schema for one agent action.
+
+    The reply must be exactly one of a tool call ``{"tool", "args"}`` or a
+    final ``{"done"}``. Passed to the provider for constrained decoding.
+    """
+    return {
+        "type": "object",
+        "oneOf": [
+            {
+                "type": "object",
+                "properties": {
+                    "tool": {"type": "string", "enum": list(tool_names)},
+                    "args": {"type": "object"},
+                },
+                "required": ["tool", "args"],
+            },
+            {
+                "type": "object",
+                "properties": {"done": {"type": "string"}},
+                "required": ["done"],
+            },
+        ],
+    }
+
+
 class AgentRunner:
     def __init__(
         self,
@@ -70,13 +96,15 @@ class AgentRunner:
             Message("user", task),
         ]
 
+        schema = action_schema(list(self._tools))
+
         steps = 0
         last_text = ""
         transcript: list[Step] = []
         _FORMAT_ERROR = 'Error: reply with a single JSON object {"tool": ...} or {"done": ...}'
 
         while steps < self._max_steps:
-            reply = await self._provider.complete(model, messages)
+            reply = await self._provider.complete(model, messages, schema=schema)
             messages.append(reply)
             last_text = reply.content
             index = steps

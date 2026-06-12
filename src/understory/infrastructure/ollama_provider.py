@@ -2,22 +2,42 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any, Protocol
 
 import ollama
 
 from understory.domain.chat import ChatProvider, Message, ModelName
 
 
-class OllamaChatProvider(ChatProvider):
-    def __init__(self, client: ollama.AsyncClient | None = None) -> None:
-        self._client = client or ollama.AsyncClient()
+class _OllamaClient(Protocol):
+    """The slice of the Ollama async client this provider depends on.
 
-    async def complete(self, model: ModelName, messages: Sequence[Message]) -> Message:
-        response = await self._client.chat(
-            model=model,
-            messages=[{"role": m.role, "content": m.content} for m in messages],
-        )
+    Typing the seam structurally lets tests inject a fake without `Any` and
+    keeps the real ``ollama.AsyncClient`` conforming.
+    """
+
+    async def chat(self, *, model: str, messages: Any, format: Any = ...) -> Any: ...
+
+    async def list(self) -> Any: ...
+
+
+class OllamaChatProvider(ChatProvider):
+    def __init__(self, client: _OllamaClient | None = None) -> None:
+        self._client: _OllamaClient = client or ollama.AsyncClient()
+
+    async def complete(
+        self,
+        model: ModelName,
+        messages: Sequence[Message],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> Message:
+        wire = [{"role": m.role, "content": m.content} for m in messages]
+        if schema is not None:
+            response = await self._client.chat(model=model, messages=wire, format=schema)
+        else:
+            response = await self._client.chat(model=model, messages=wire)
         msg = response["message"]
         return Message(role="assistant", content=msg["content"])
 

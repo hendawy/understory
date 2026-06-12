@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import pytest
 
@@ -17,7 +17,13 @@ class FakeProvider:
         self.models = models
         self.calls: list[tuple[str, list[Message]]] = []
 
-    async def complete(self, model: ModelName, messages: Sequence[Message]) -> Message:
+    async def complete(
+        self,
+        model: ModelName,
+        messages: Sequence[Message],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> Message:
         self.calls.append((model, list(messages)))
         return Message("assistant", self.reply)
 
