@@ -28,55 +28,58 @@ trust the result with fewer tokens spent verifying?*
 3. **Separation of concerns.** `domain` (rules, interfaces) → `application` (use cases) → `infrastructure` (providers, transport). One direction of dependency.
 4. **Secure by default.** No secrets in code. Validate inputs at the boundary. Conservative defaults.
 5. **Guardrails are non-negotiable.** `ty` typechecking, `pytest` units, `ruff format` — green before merge.
-6. **Swap-friendly.** Ollama may be replaced. Nothing in `domain`/`application` imports `ollama`.
+6. **The model platform is replaceable.** Ollama is one provider, not the design.
+   Nothing in `domain`/`application` imports `ollama` or assumes it. Platform-specific
+   features (structured output, model listing, embeddings) are exposed as
+   provider-neutral capabilities on the port and implemented per backend — never
+   leaked upward. New capabilities get an interface first, an Ollama impl second.
 
 ## Roadmap
 
-### v0.1 — Foundation
-- [x] Working MCP server with Ollama tools
-- [x] `src/` layout, layered packages
-- [x] Test suite + guardrails wired in CI-ready form
-- [x] `arch-understudy` skill
+Ordered by the mission: deterministic, trustworthy delegation first; operability
+and reach after. The model platform is **replaceable** — anything platform-specific
+(e.g. Ollama's structured-output `format`) lives behind a provider port and never
+leaks into `domain`/`application`.
 
-### v0.2 — Per-project skill / MCP scoping
-**Why first:** every other feature inflates the system prompt. Fix the ceiling first.
-- Project-local skill discovery
-- MCP server scoping per project
-- Measure prompt-token reduction
+### Shipped
+- **Foundation** — layered `src/` layout, guardrails (ty/pytest/ruff), `arch-understudy` skill.
+- **Sub-agent runtime** — confined `Workspace`; agent loop + `delegate_task`
+  (text JSON protocol, recovers from malformed output); per-session trace + web UI at `/trace`.
 
-### v0.3 — Sub-agent runtime
-Turn the local model from a chat proxy into an agent the main LLM delegates
-whole tasks to. Built in slices:
-- [x] **Confined workspace** — `Workspace` port + `LocalFilesystemWorkspace`,
-  jailed to one root (read/write/edit/list, escapes rejected). Security base.
-- [x] **Agent loop** — local model picks tools (JSON protocol), executes, iterates,
-  recovers from malformed output; exposed as MCP tool `delegate_task(task, model,
-  workspace_path, max_steps)`.
-- [x] **Per-session trace + web UI** — record every step; inspect at `/trace`.
-- [ ] **Skill registry** — load/scope skills so the local agent's prompt stays small.
-
-### v0.4 — Determinism & trust (NEXT — serves the mission directly)
+### Now — Determinism & trust (the mission)
 Make delegated outcomes reliable enough that the main agent trusts a compact
 signal instead of re-verifying. Ordered by leverage:
-- [ ] **Constrained output** — use Ollama structured output (`format` / JSON
-  schema) so the model is forced to emit valid `{"tool"...}` / `{"done"...}`.
-  Fewer wasted steps, fewer garbage recoveries → more deterministic loops.
-- [ ] **Verified outcomes** — give the local agent a confined "run check" tool
-  and have `delegate_task` run the project's guardrails after edits, reporting
-  `verified: green/red`. The main agent trusts green; no file re-reading.
-- [ ] **Structured result** — return files changed + verification status as a
-  compact summary, not prose. High signal, low tokens.
+1. **Constrained output** — a generic "structured/constrained completion" capability
+   on the provider port so the model is forced to emit valid `{"tool"...}` / `{"done"...}`.
+   Ollama's `format`/JSON-schema is one *implementation* inside `OllamaChatProvider`;
+   the interface stays provider-neutral. Fewer wasted steps, fewer garbage recoveries.
+2. **Verified outcomes** — a confined "run check" tool; `delegate_task` runs the
+   project's guardrails after edits and reports `verified: green/red`. The main
+   agent trusts green; no file re-reading. (Command execution sandboxed to the workspace.)
+3. **Structured result** — files changed + verification status as a compact summary,
+   not prose. High signal, low tokens.
 
-### v0.5 — LSP integration
-- Language server client (Python first)
-- Expose `definition`, `references`, `diagnostics` as MCP tools
-- Streaming diagnostics without prompt bloat
+### Then — Skills & tooling
+Let a small model punch above its weight and behave predictably.
+- **Skill registry** — load/scope skills so the local agent's prompt stays small.
+- **Provider abstraction proof** — a second backend behind the provider port,
+  validating that Ollama is genuinely replaceable.
 
-### Later
-- Pluggable model providers (not just Ollama)
-- Persist sessions/conversations across restarts (currently in-memory)
-- Live trace updates (incremental recording + push)
-- Telemetry / cost accounting per delegated call (tokens saved vs spent)
+### v1.0 — General use
+**Trigger:** Determinism & trust + Skills shipped, so delegation is reliable and
+the main agent can hand off real work and trust the result. Only then is it worth
+polishing for outside users.
+- **Packaging** — installable (pip/uv), versioned release, `understory` console entrypoint.
+- **Configuration** — model/endpoint/host configurable, nothing hardcoded.
+- **Docs** — quickstart, tool reference, the security/confinement model.
+- **Branding** — name/logo, README polish, runnable examples.
+
+### Later — Operability & reach (when needed, not blocking GA)
+- Persist sessions/conversations across restarts (currently in-memory).
+- Live trace updates (incremental recording + push).
+- Telemetry / cost accounting — measure tokens saved vs spent (proves the mission).
+- LSP integration — `definition`/`references`/`diagnostics` as tools, no prompt bloat.
+- Pluggable model providers beyond the first two.
 
 ## Non-goals (for now)
 
