@@ -71,11 +71,13 @@ the main agent can hand off real work and trust the result. Only then is it wort
 polishing for outside users.
 - **Packaging** — installable (pip/uv), versioned release, `understory` console entrypoint.
 - **Configuration** — model/endpoint/host configurable, nothing hardcoded.
+- **Persistence** — sessions/traces survive restarts (sqlite or files behind the
+  existing `TraceStore`/`ConversationStore` ports). Losing all state on restart is
+  not acceptable for a released tool.
 - **Docs** — quickstart, tool reference, the security/confinement model.
 - **Branding** — name/logo, README polish, runnable examples.
 
 ### Later — Operability & reach (when needed, not blocking GA)
-- Persist sessions/conversations across restarts (currently in-memory).
 - Live trace updates (incremental recording + push).
 - Telemetry / cost accounting — measure tokens saved vs spent (proves the mission).
 - LSP integration — `definition`/`references`/`diagnostics` as tools, no prompt bloat.
