@@ -28,11 +28,24 @@ class Step:
 @dataclass(frozen=True, slots=True)
 class Session:
     id: str
+    title: str
     model: str
     task: str
     workspace_path: str
     status: SessionStatus
     steps: Sequence[Step] = field(default_factory=tuple)
+
+
+def default_title(task: str) -> str:
+    """Derive a short human-readable session title from the task text.
+
+    First non-empty line, trimmed to 60 chars; ``"untitled"`` if blank.
+    """
+    for line in task.splitlines():
+        line = line.strip()
+        if line:
+            return line[:60]
+    return "untitled"
 
 
 class TraceStore(Protocol):

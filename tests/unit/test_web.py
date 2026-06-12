@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from starlette.applications import Starlette
+from starlette.routing import Mount
 from starlette.testclient import TestClient
 
 from understory.domain.trace import Session, Step
@@ -14,6 +16,7 @@ def _store_with_session() -> InMemoryTraceStore:
     store.save(
         Session(
             id="sess-1",
+            title="Create hello.md",
             model="gemma4:e2b",
             task="create hello.md",
             workspace_path="/tmp/ws",
@@ -42,6 +45,25 @@ def test_index_lists_sessions() -> None:
     assert "gemma4:e2b" in resp.text
 
 
+def test_index_shows_session_title() -> None:
+    client = TestClient(build_web_app(_store_with_session()))
+    resp = client.get("/")
+    assert "Create hello.md" in resp.text
+
+
+def test_index_links_are_mount_aware() -> None:
+    # Mounted at /trace, the session link must point at /trace/sess-1, not /sess-1,
+    # and must actually resolve.
+    parent = Starlette(routes=[Mount("/trace", app=build_web_app(_store_with_session()))])
+    client = TestClient(parent)
+
+    resp = client.get("/trace/")
+    assert "/trace/sess-1" in resp.text
+
+    followed = client.get("/trace/sess-1")
+    assert followed.status_code == 200
+
+
 def test_detail_shows_steps() -> None:
     client = TestClient(build_web_app(_store_with_session()))
     resp = client.get("/sess-1")
@@ -62,6 +84,7 @@ def test_model_output_is_html_escaped() -> None:
     store.save(
         Session(
             id="xss",
+            title="<script>alert(1)</script>",
             model="m",
             task="<script>alert(1)</script>",
             workspace_path="/tmp/ws",

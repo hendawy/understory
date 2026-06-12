@@ -7,7 +7,9 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
-from starlette.routing import Mount
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
+from starlette.routing import Mount, Route
 
 from understory.application.agent_runner import AgentRunner
 from understory.application.chat_service import ChatService
@@ -17,7 +19,7 @@ from understory.application.workspace_tools import (
     ReadTool,
     WriteTool,
 )
-from understory.domain.trace import Session, TraceStore
+from understory.domain.trace import Session, TraceStore, default_title
 from understory.infrastructure.local_filesystem import LocalFilesystemWorkspace
 from understory.infrastructure.memory_store import InMemoryConversationStore
 from understory.infrastructure.memory_trace_store import InMemoryTraceStore
@@ -88,6 +90,7 @@ def build_server(
         model: str,
         workspace_path: str,
         max_steps: int = 10,
+        title: str | None = None,
     ) -> str:
         """Delegate a task to a local model that can read/write/edit/list files,
         confined to workspace_path. Returns the model's final answer."""
@@ -104,6 +107,7 @@ def build_server(
             sid = uuid.uuid4().hex
             session = Session(
                 id=sid,
+                title=title or default_title(task),
                 model=model,
                 task=task,
                 workspace_path=workspace_path,
@@ -118,12 +122,18 @@ def build_server(
     return mcp
 
 
+async def _redirect_to_trace(_request: Request) -> RedirectResponse:
+    """Redirect the bare ``/trace`` to ``/trace/`` so the mount root resolves."""
+    return RedirectResponse("/trace/")
+
+
 def _build_app_with_store(mcp: FastMCP, store: TraceStore) -> Starlette:
     """Return a single ASGI app: trace UI at ``/trace``, MCP SSE at ``/``."""
     web_app = build_web_app(store)
     sse_app = mcp.sse_app()
     return Starlette(
         routes=[
+            Route("/trace", _redirect_to_trace),
             Mount("/trace", app=web_app),
             Mount("/", app=sse_app),
         ]
