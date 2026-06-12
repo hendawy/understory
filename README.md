@@ -15,10 +15,18 @@ Start the MCP server using SSE:
 
 ```bash
 cd understory
-uv run uvicorn --app-dir src understory.infrastructure.mcp_server:app --host 0.0.0.0 --port 8000 --reload
+uv run uvicorn --app-dir src understory.infrastructure.mcp_server:app --host 0.0.0.0 --port 8000
 ```
 
 The server will start listening for Server-Sent Events on `http://localhost:8000/sse`.
+
+> **Do not use `--reload` when an MCP client is connected.** Clients (Claude Code,
+> Antigravity, etc.) hold a long-lived SSE session. Each hot reload restarts the
+> app and drops that session, so the client's in-flight tool calls fail with
+> `MCP error -32602` until it reconnects. Use `--reload` only for solo development
+> with no client attached.
+
+The session trace UI is served at `http://localhost:8000/trace/`.
 
 ## Connecting Antigravity
 
