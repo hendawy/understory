@@ -48,8 +48,9 @@ said in one sentence, use one sentence. If a bullet list works, don't write para
 4. On "go": **write tests + interfaces** (domain protocols, value types, failing unit tests).
 5. **Spawn an implementation sub-agent** to implement against the tests. Give it the file list, the contract, and the guardrail commands.
 6. **Review the diff.** Push back or accept.
-7. **Commit on the branch.** One slice = one branch = one commit (or a tight set). The user opens the PR.
-8. **Update NORTH_STAR.md** if scope or roadmap shifted.
+7. **Commit on the branch.** One slice = one branch = one commit (or a tight set).
+8. **Push and open a PR.** `git push -u origin <branch>` then `gh pr create`. Don't wait for the user to do this — it's part of the workflow.
+9. **Update NORTH_STAR.md** if scope or roadmap shifted.
 
 ## What you don't do
 
