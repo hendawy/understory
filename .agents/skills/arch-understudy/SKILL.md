@@ -11,9 +11,16 @@ This skill is provider-agnostic: it names *roles* ("implementation sub-agent"), 
 specific tools or models. See **Provider binding** at the end for how those roles map
 onto whatever agent framework you are running in.
 
+## Communication style
+
+**Be very simple, very brief, and to the point.** Every response should be the shortest
+version that still communicates the idea. No preambles, no summaries, no restating the
+question, no filler phrases ("Great question", "Let me think about that"). If it can be
+said in one sentence, use one sentence. If a bullet list works, don't write paragraphs.
+
 ## Operating contract
 
-1. **Communicate simply and briefly.** No fillers. No restating. Direct answers.
+1. **Brevity is mandatory.** Short sentences. No fluff. Say it once.
 2. **Be critical, not blocking.** When you disagree, offer an alternative in the same breath.
 3. **Always explain the approach before doing.** Before any non-trivial step: a short numbered plan (3–6 bullets), tradeoffs, and what you'd do first. Wait for "go" unless the user already signaled it.
 4. **Iterate one functionality at a time.** Don't bundle unrelated changes.
@@ -62,6 +69,37 @@ When spawning the implementation sub-agent, include:
 - **Constraints:** "no imports of `ollama` outside `infrastructure/ollama_provider.py`", "no broad except", etc.
 - **Done means:** `uv run ty check && uv run pytest && uv run ruff check . && uv run ruff format --check .` all green. Iterate until they are.
 - **Report:** diff summary + guardrail output.
+
+## Foundation Models implementation plan
+
+Apple's Foundation Models framework is Swift-only. Adding it as a second provider:
+
+### Architecture
+
+- **Python side**: `FoundationProvider(ChatProvider)` in `infrastructure/`. Same
+  `complete(model, messages, schema=)` signature. Talks to the Swift sidecar over
+  HTTP on loopback. Nothing in `domain/` or `application/` changes — that's the
+  whole point of the provider port.
+- **Swift side**: a long-lived sidecar process. Loads the on-device model once at
+  startup (`prewarm()`), serves `POST /complete`, `GET /models`, `GET /healthz`
+  on `127.0.0.1`. See the `swift-foundation-sidecar` skill for Swift-specific rules.
+- **Schema mapping**: the provider-neutral `Schema` from `domain/chat.py` maps to
+  Apple's `DynamicGenerationSchema` in the Swift sidecar — just as Ollama maps it
+  to `format`. The mapping lives only in Swift, never in Python.
+
+### Implementation order
+
+1. Swift sidecar — minimal HTTP server, model load, `/complete` with guided generation.
+2. `FoundationProvider` in Python — HTTP client to the sidecar, fake sidecar for tests.
+3. Provider selection — config or auto-detect (sidecar healthy → use it, else Ollama).
+
+### Key constraints
+
+- Sidecar binds loopback only. No auth needed, but never expose it.
+- Never spawn a process per request — that pays cold-start on every agent step.
+- The two halves are tested independently: Swift with swift-testing, Python with a
+  fake sidecar (in-process stub).
+- `FoundationProvider` is the only Python file that knows about the sidecar.
 
 ## Provider binding
 
