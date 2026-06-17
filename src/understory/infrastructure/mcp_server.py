@@ -20,6 +20,7 @@ from understory.application.workspace_tools import (
     WriteTool,
 )
 from understory.domain.trace import Session, TraceStore, default_title
+from understory.domain.verification import verify_outcome
 from understory.infrastructure.local_filesystem import LocalFilesystemWorkspace
 from understory.infrastructure.memory_store import InMemoryConversationStore
 from understory.infrastructure.memory_trace_store import InMemoryTraceStore
@@ -104,6 +105,7 @@ def build_server(
             ]
             runner = AgentRunner(service.provider, tools, max_steps=max_steps)
             result = await runner.run(model, task)
+            verification = verify_outcome(result.transcript, workspace)
             sid = uuid.uuid4().hex
             session = Session(
                 id=sid,
@@ -115,7 +117,8 @@ def build_server(
                 steps=result.transcript,
             )
             store.save(session)
-            return f"[{result.status} in {result.steps} steps] (session {sid}) {result.output}"
+            v_tag = f" [verification: {verification.status} — {verification.summary}]"
+            return f"[{result.status} in {result.steps} steps] (session {sid}) {result.output}{v_tag}"
         except Exception as e:
             return f"Error running task: {e}"
 
