@@ -34,5 +34,23 @@ determinism work:
 3. Constrained output (#16) should eliminate wrapper text via Ollama `format`.
 4. Verified outcomes (#17) needed — model can claim success without delivering.
 
-### After (with constrained output) — TODO
-Re-run the identical task with #16 merged. Compare steps / adherence / correctness.
+### After (with constrained output) — gemma4:e2b, user-service task
+
+- **Model:** gemma4:e2b
+- **Task:** identical to baseline
+- **Steps:** 4
+- **JSON adherence:** 4/4 tool calls parsed. Constrained output eliminated the
+  markdown-wrapping problem entirely — every reply was valid JSON.
+- **Correctness:** No files written. Model claimed "done" with empty workspace.
+  Same hallucinated completion as baseline.
+- **Main-agent fix-up:** Total redo required. Zero usable output.
+
+**Delta from baseline:**
+- JSON format: **fixed** — 4/4 vs 1/4 adherence.
+- Actual output: **unchanged** — model skips tool use and declares victory.
+
+**Findings:**
+1. Constrained output solved the format problem but not the behavior problem.
+2. The model either never calls `write` or goes straight to `{"done": "..."}`.
+3. Verified outcomes (#17) is now the critical next piece — the agent loop must
+   check that claimed work actually exists before accepting "done".
