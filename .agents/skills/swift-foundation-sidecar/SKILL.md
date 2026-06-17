@@ -10,9 +10,6 @@ skill is for writing the **sidecar** — a small Swift program that wraps the
 on-device model and speaks a tiny local protocol the Python `FoundationProvider`
 can call. The Python side never knows it's Swift; it just sees a `ChatProvider`.
 
-This is an **experiment**: the goal is to test whether a local Apple model can
-absorb work that would otherwise cost frontier-model tokens. Keep it small.
-
 ## The one rule that decides efficiency
 
 **The sidecar is a long-lived service. Load the model once, keep it warm.**
