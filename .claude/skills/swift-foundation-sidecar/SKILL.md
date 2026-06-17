@@ -1,0 +1,1 @@
+../../../.agents/skills/swift-foundation-sidecar/SKILL.md
