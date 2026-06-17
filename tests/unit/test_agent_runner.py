@@ -151,16 +151,18 @@ async def test_non_string_tool_name_is_recoverable(ws: LocalFilesystemWorkspace)
 
 
 @pytest.mark.asyncio
-async def test_system_prompt_includes_tool_arg_names(ws: LocalFilesystemWorkspace) -> None:
-    """The model must see each tool's argument names so it knows how to call them."""
+async def test_system_prompt_includes_tool_descriptions(ws: LocalFilesystemWorkspace) -> None:
+    """The system prompt must contain each tool's full description verbatim."""
+    tools = _tools(ws)
     provider = ScriptedProvider([json.dumps({"done": "ok"})])
-    await AgentRunner(provider, _tools(ws)).run("m", "anything")
+    await AgentRunner(provider, tools).run("m", "anything")
 
     system_msg = provider.seen[0][0]
     assert system_msg.role == "system"
-    assert "write(path, content)" in system_msg.content
-    assert "read(path)" in system_msg.content
-    assert "edit(path, old, new)" in system_msg.content
+    for tool in tools:
+        assert tool.description in system_msg.content, (
+            f"tool '{tool.name}' description missing from system prompt"
+        )
 
 
 @pytest.mark.asyncio
