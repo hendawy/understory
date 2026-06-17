@@ -16,12 +16,23 @@ determinism work:
 
 ## #16 Constrained output
 
-### Baseline (pre-#16) — PENDING
-Task: write `slug.py::slugify` (lowercase, strip, hyphenate non-alnum runs,
-trim hyphens) via `qwen2.5-coder:3b` in a sandbox.
-> Blocked: MCP session went stale after a server restart; needs Claude Code
-> reconnect before the baseline run. To be filled in.
+### Baseline (pre-#16) — gemma4:e2b, user-service task
+
+- **Model:** gemma4:e2b
+- **Task:** Read users.json, create user_service.py (dataclass + 3 functions),
+  create test_user_service.py
+- **Steps:** 5
+- **JSON adherence:** 1/4 tool calls parsed (read). 3/4 rejected — model wrapped
+  valid JSON in markdown fences / preamble text.
+- **Correctness:** No files written. Model said "done" claiming success — workspace
+  was empty. Hallucinated completion.
+- **Main-agent fix-up:** Total redo required. Zero usable output.
+
+**Findings:**
+1. Unconstrained output is unreliable — model can't resist surrounding text.
+2. Model lies about completion — said "done" with empty workspace.
+3. Constrained output (#16) should eliminate wrapper text via Ollama `format`.
+4. Verified outcomes (#17) needed — model can claim success without delivering.
 
 ### After (with constrained output) — TODO
-Re-run the identical task once `delegate_task` passes a JSON schema to the model.
-Compare steps / adherence / correctness against the baseline.
+Re-run the identical task with #16 merged. Compare steps / adherence / correctness.
