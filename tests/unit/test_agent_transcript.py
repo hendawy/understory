@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pytest
@@ -23,7 +23,13 @@ class ScriptedProvider:
     def __init__(self, replies: Sequence[str]) -> None:
         self._replies = list(replies)
 
-    async def complete(self, model: ModelName, messages: Sequence[Message]) -> Message:
+    async def complete(
+        self,
+        model: ModelName,
+        messages: Sequence[Message],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> Message:
         return Message("assistant", self._replies.pop(0))
 
     async def list_models(self) -> Sequence[ModelName]:
