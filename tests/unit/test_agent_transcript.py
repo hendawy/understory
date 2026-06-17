@@ -15,7 +15,7 @@ from understory.application.workspace_tools import (
     ReadTool,
     WriteTool,
 )
-from understory.domain.chat import Message, ModelName
+from understory.domain.chat import Message, ModelName, ToolDef
 from understory.infrastructure.local_filesystem import LocalFilesystemWorkspace
 
 
@@ -29,6 +29,7 @@ class ScriptedProvider:
         messages: Sequence[Message],
         *,
         schema: Mapping[str, object] | None = None,
+        tools: Sequence[ToolDef] | None = None,
     ) -> Message:
         return Message("assistant", self._replies.pop(0))
 

@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 import pytest
 
 from understory.application.chat_service import ChatService
-from understory.domain.chat import Message, ModelName
+from understory.domain.chat import Message, ModelName, ToolDef
 from understory.infrastructure.memory_store import InMemoryConversationStore
 
 
@@ -23,6 +23,7 @@ class FakeProvider:
         messages: Sequence[Message],
         *,
         schema: Mapping[str, object] | None = None,
+        tools: Sequence[ToolDef] | None = None,
     ) -> Message:
         self.calls.append((model, list(messages)))
         return Message("assistant", self.reply)

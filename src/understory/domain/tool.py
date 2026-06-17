@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Protocol
 
+from understory.domain.chat import Schema
+
 
 class ToolError(Exception):
     """A tool was called with missing or invalid arguments."""
@@ -18,6 +20,7 @@ class ToolError(Exception):
 class Tool(Protocol):
     name: str
     description: str
+    parameters: Schema
 
     def run(self, args: Mapping[str, str]) -> str:
         """Execute with string args, returning an observation."""

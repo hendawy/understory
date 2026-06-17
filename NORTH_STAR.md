@@ -45,25 +45,32 @@ leaks into `domain`/`application`.
 - **Foundation** — layered `src/` layout, guardrails (ty/pytest/ruff), `arch-understudy` skill.
 - **Sub-agent runtime** — confined `Workspace`; agent loop + `delegate_task`
   (text JSON protocol, recovers from malformed output); per-session trace + web UI at `/trace`.
+- **Constrained output** — provider-neutral `schema` parameter on `ChatProvider.complete()`;
+  Ollama impl uses `format`. Eliminates garbage JSON wrapping.
+- **Verified outcomes** — `verify_outcome()` checks that files the model claimed
+  to write actually exist. Catches hallucinated completion.
+- **Tool prompt fix** — tool arg names now visible to the model. First successful
+  dogfood run: gemma4:e2b read, wrote 2 files, and completed in 4 steps.
 
-### Now — Determinism & trust (the mission)
-Make delegated outcomes reliable enough that the main agent trusts a compact
-signal instead of re-verifying. Ordered by leverage:
-1. **Constrained output** — a generic "structured/constrained completion" capability
-   on the provider port so the model is forced to emit valid `{"tool"...}` / `{"done"...}`.
-   Ollama's `format`/JSON-schema is one *implementation* inside `OllamaChatProvider`;
-   the interface stays provider-neutral. Fewer wasted steps, fewer garbage recoveries.
-2. **Verified outcomes** — a confined "run check" tool; `delegate_task` runs the
-   project's guardrails after edits and reports `verified: green/red`. The main
-   agent trusts green; no file re-reading. (Command execution sandboxed to the workspace.)
-3. **Structured result** — files changed + verification status as a compact summary,
+### Now — Native tool calling
+The text-based JSON protocol works (gemma4:e2b produces files after the
+arg-name fix) but is fragile — the model wasn't trained for our invented
+format. Native tool calling uses the platform's built-in tool-use support,
+which the model was fine-tuned for.
+
+1. **Native tool calling on `ChatProvider`** — extend `complete()` to accept
+   tool definitions and return structured tool calls, not raw text. The agent
+   runner passes tool descriptions to the provider; each provider maps them to
+   the platform's native format (Ollama `tools` parameter, Apple Foundation
+   Models tool calling, etc.). The text protocol becomes a fallback, not the
+   default. This also validates the provider abstraction — if two backends
+   implement the same tool-calling interface, Ollama is genuinely replaceable.
+2. **Structured result** — files changed + verification status as a compact summary,
    not prose. High signal, low tokens.
 
 ### Then — Skills & tooling
 Let a small model punch above its weight and behave predictably.
 - **Skill registry** — load/scope skills so the local agent's prompt stays small.
-- **Provider abstraction proof** — a second backend behind the provider port,
-  validating that Ollama is genuinely replaceable.
 
 ### v1.0 — General use
 **Trigger:** Determinism & trust + Skills shipped, so delegation is reliable and

@@ -118,7 +118,8 @@ def build_server(
             )
             store.save(session)
             v_tag = f" [verification: {verification.status} — {verification.summary}]"
-            return f"[{result.status} in {result.steps} steps] (session {sid}) {result.output}{v_tag}"
+            prefix = f"[{result.status} in {result.steps} steps] (session {sid})"
+            return f"{prefix} {result.output}{v_tag}"
         except Exception as e:
             return f"Error running task: {e}"
 

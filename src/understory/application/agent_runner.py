@@ -21,9 +21,9 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, cast
 
-from understory.domain.chat import ChatProvider, Message, ModelName
+from understory.domain.chat import ChatProvider, Message, ModelName, ToolDef
 from understory.domain.tool import Tool, ToolError
 from understory.domain.trace import Step
 from understory.domain.workspace import WorkspaceError
@@ -91,7 +91,10 @@ class AgentRunner:
             Message("user", task),
         ]
 
-        schema = action_schema(list(self._tools))
+        tool_defs = [
+            ToolDef(name=t.name, description=t.description, parameters=t.parameters)
+            for t in self._tools.values()
+        ]
 
         steps = 0
         last_text = ""
@@ -99,12 +102,54 @@ class AgentRunner:
         _FORMAT_ERROR = 'Error: reply with a single JSON object {"tool": ...} or {"done": ...}'
 
         while steps < self._max_steps:
-            reply = await self._provider.complete(model, messages, schema=schema)
+            reply = await self._provider.complete(model, messages, tools=tool_defs)
             messages.append(reply)
             last_text = reply.content
             index = steps
             steps += 1
 
+            # --- Native tool-call branch (checked FIRST) ---
+            if reply.tool_calls:
+                for tool_call in reply.tool_calls:
+                    tool_name = tool_call.name
+                    tool_args = cast(dict[str, str], dict(tool_call.args))
+                    if tool_name not in self._tools:
+                        observation = f"Error: unknown tool '{tool_name}'"
+                        messages.append(Message("tool", observation, tool_call_id=tool_name))
+                        transcript.append(
+                            Step(index, reply.content, "error", observation=observation)
+                        )
+                        continue
+                    try:
+                        result = self._tools[tool_name].run(tool_args)
+                        observation = f"Observation: {result}"
+                        messages.append(Message("tool", observation, tool_call_id=tool_name))
+                        transcript.append(
+                            Step(
+                                index,
+                                reply.content,
+                                "tool",
+                                tool=tool_name,
+                                args=tool_args,
+                                observation=observation,
+                            )
+                        )
+                    except (ToolError, WorkspaceError) as exc:
+                        observation = f"Error: {exc}"
+                        messages.append(Message("tool", observation, tool_call_id=tool_name))
+                        transcript.append(
+                            Step(
+                                index,
+                                reply.content,
+                                "tool",
+                                tool=tool_name,
+                                args=tool_args,
+                                observation=observation,
+                            )
+                        )
+                continue
+
+            # --- Text JSON fallback path ---
             # Parse the reply.
             try:
                 payload = json.loads(reply.content)
