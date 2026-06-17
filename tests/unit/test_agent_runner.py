@@ -151,6 +151,19 @@ async def test_non_string_tool_name_is_recoverable(ws: LocalFilesystemWorkspace)
 
 
 @pytest.mark.asyncio
+async def test_system_prompt_includes_tool_arg_names(ws: LocalFilesystemWorkspace) -> None:
+    """The model must see each tool's argument names so it knows how to call them."""
+    provider = ScriptedProvider([json.dumps({"done": "ok"})])
+    await AgentRunner(provider, _tools(ws)).run("m", "anything")
+
+    system_msg = provider.seen[0][0]
+    assert system_msg.role == "system"
+    assert "write(path, content)" in system_msg.content
+    assert "read(path)" in system_msg.content
+    assert "edit(path, old, new)" in system_msg.content
+
+
+@pytest.mark.asyncio
 async def test_max_steps_terminates(ws: LocalFilesystemWorkspace) -> None:
     # Model never says done — always calls a tool.
     loop_reply = json.dumps({"tool": "list_dir", "args": {}})
