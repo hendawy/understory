@@ -222,3 +222,4 @@ __marimo__/
 __pycache__
 .ruff_cache
 .venv
+.DS_Store
