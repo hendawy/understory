@@ -50,7 +50,8 @@ said in one sentence, use one sentence. If a bullet list works, don't write para
 6. **Review the diff.** Push back or accept.
 7. **Commit on the branch.** One slice = one branch = one commit (or a tight set).
 8. **Push and open a PR.** `git push -u origin <branch>` then `gh pr create`. Don't wait for the user to do this — it's part of the workflow.
-9. **Update NORTH_STAR.md** if scope or roadmap shifted.
+9. **Dogfood after merge.** Once the PR is merged, run the canned benchmark task (`benchmarks/user_service.md`) end-to-end via `delegate_task` on `main`. Record results in LEARNINGS.md under the feature heading. This is mandatory — the last dogfood run broke; never skip it.
+10. **Update NORTH_STAR.md** if scope or roadmap shifted.
 
 ## What you don't do
 
