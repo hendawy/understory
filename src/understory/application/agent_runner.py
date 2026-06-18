@@ -76,12 +76,7 @@ class AgentRunner:
 
     async def run(self, model: ModelName, task: str) -> AgentResult:
         """Drive the model/tool loop until done or max_steps is reached."""
-        tool_lines = "\n".join(
-            f"{t.name}({t.description.split(':', 1)[-1].strip()})"
-            if ":" in t.description
-            else f"{t.name}: {t.description}"
-            for t in self._tools.values()
-        )
+        tool_lines = "\n".join(t.description for t in self._tools.values())
         system_content = (
             f"Task: {task}\n\n"
             f"Available tools:\n{tool_lines}\n\n"

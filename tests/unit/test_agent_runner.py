@@ -151,6 +151,21 @@ async def test_non_string_tool_name_is_recoverable(ws: LocalFilesystemWorkspace)
 
 
 @pytest.mark.asyncio
+async def test_system_prompt_includes_tool_descriptions(ws: LocalFilesystemWorkspace) -> None:
+    """The system prompt must contain each tool's full description verbatim."""
+    tools = _tools(ws)
+    provider = ScriptedProvider([json.dumps({"done": "ok"})])
+    await AgentRunner(provider, tools).run("m", "anything")
+
+    system_msg = provider.seen[0][0]
+    assert system_msg.role == "system"
+    for tool in tools:
+        assert tool.description in system_msg.content, (
+            f"tool '{tool.name}' description missing from system prompt"
+        )
+
+
+@pytest.mark.asyncio
 async def test_max_steps_terminates(ws: LocalFilesystemWorkspace) -> None:
     # Model never says done — always calls a tool.
     loop_reply = json.dumps({"tool": "list_dir", "args": {}})
