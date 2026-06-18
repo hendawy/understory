@@ -48,6 +48,27 @@ Three layers, dependencies point inward only:
 - Each implementation class explicitly inherits its domain protocol.
 - The model platform is replaceable — Ollama is one provider, not the design.
 
+## Dogfooding
+
+**Dogfooding means the frontier model (you) delegates implementation work to the
+local model via the `delegate_task` MCP tool.** That is the entire purpose of
+Understory — a local model does the plumbing while the frontier model architects,
+writes interfaces, writes tests, and reviews.
+
+Dogfooding is NOT:
+- Spawning Claude sub-agents to write code (that's normal development)
+- Running tests or guardrails (that's verification)
+
+Dogfooding IS:
+- Frontier model writes interface + tests
+- Frontier model calls `delegate_task` with a workspace containing the interface,
+  tests, and any context files the local model needs
+- Local model (gemma via Ollama) implements the code in that workspace
+- Frontier model reviews the output, runs guardrails, iterates if needed
+
+Every feature should be dogfooded: delegate the implementation body to the local
+model, record the result in `LEARNINGS.md`. This is how we know if the tool works.
+
 ## Dev process
 
 1. **Branch first.** `git checkout -b <type>/<slug>`. Never commit to `main`.
