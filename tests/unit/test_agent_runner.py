@@ -261,6 +261,20 @@ async def test_native_tool_error_becomes_observation(ws: LocalFilesystemWorkspac
 
 
 @pytest.mark.asyncio
+async def test_fenced_json_is_parsed(ws: LocalFilesystemWorkspace, tmp_path: Path) -> None:
+    """Models that wrap JSON in markdown fences should still work."""
+    provider = ScriptedProvider(
+        [
+            '```json\n{"tool": "write", "args": {"path": "fenced.txt", "content": "works"}}\n```',
+            '```json\n{"done": "created"}\n```',
+        ]
+    )
+    result = await AgentRunner(provider, _tools(ws)).run("m", "create fenced.txt")
+    assert result.status == "done"
+    assert (tmp_path / "fenced.txt").read_text() == "works"
+
+
+@pytest.mark.asyncio
 async def test_runner_passes_tool_defs_to_provider(ws: LocalFilesystemWorkspace) -> None:
     """The runner must pass ToolDef objects to the provider's complete() call."""
     provider = ScriptedProvider([json.dumps({"done": "ok"})])

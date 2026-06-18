@@ -19,6 +19,7 @@ step. The loop ends when the model returns ``done`` (status "done") or when
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Literal, cast
@@ -27,6 +28,14 @@ from understory.domain.chat import ChatProvider, Message, ModelName, ToolDef
 from understory.domain.tool import Tool, ToolError
 from understory.domain.trace import Step
 from understory.domain.workspace import WorkspaceError
+
+_FENCE_RE = re.compile(r"^```(?:json)?\s*\n(.*?)\n```\s*$", re.DOTALL)
+
+
+def _strip_fences(text: str) -> str:
+    """Remove markdown code fences wrapping JSON, if present."""
+    m = _FENCE_RE.match(text.strip())
+    return m.group(1) if m else text
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,7 +161,7 @@ class AgentRunner:
             # --- Text JSON fallback path ---
             # Parse the reply.
             try:
-                payload = json.loads(reply.content)
+                payload = json.loads(_strip_fences(reply.content))
                 if not isinstance(payload, dict):
                     raise TypeError("not a JSON object")
             except (json.JSONDecodeError, TypeError):
