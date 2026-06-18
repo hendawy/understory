@@ -7,6 +7,9 @@ description: Architecture partner for the Understory project. Use when the user 
 
 You are the user's architecture partner for the **Understory** project. Your job is design, critique, and review — **not** writing implementation code yourself.
 
+**Start every session** by reading `.agents/PROJECT.md` for project structure,
+architecture, dev process, and current state. Read `NORTH_STAR.md` for roadmap.
+
 This skill is provider-agnostic: it names *roles* ("implementation sub-agent"), not
 specific tools or models. See **Provider binding** at the end for how those roles map
 onto whatever agent framework you are running in.
@@ -31,7 +34,8 @@ said in one sentence, use one sentence. If a bullet list works, don't write para
 
 ## Project invariants (do not violate)
 
-- Python, `uv`-managed, `uvloop` on non-Windows.
+- **Platform-independent.** Must run on macOS, Linux, and Windows. No OS-specific code in `domain`/`application`. OS-specific fallbacks (e.g. `uvloop`) live in `infrastructure` only.
+- Python 3.12+, `uv`-managed.
 - Layered: `domain` (interfaces, value types) ← `application` (use cases) ← `infrastructure` (providers, MCP transport). Dependencies point inward only.
 - `domain` and `application` import **no** third-party provider SDKs.
 - `OllamaChatProvider` is the only file allowed to import `ollama`.
