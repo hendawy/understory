@@ -13,6 +13,7 @@ from starlette.routing import Mount, Route
 
 from understory.application.agent_runner import AgentRunner
 from understory.application.chat_service import ChatService
+from understory.application.result_formatter import format_result
 from understory.application.workspace_tools import (
     EditTool,
     ListDirTool,
@@ -117,9 +118,8 @@ def build_server(
                 steps=result.transcript,
             )
             store.save(session)
-            v_tag = f" [verification: {verification.status} — {verification.summary}]"
-            prefix = f"[{result.status} in {result.steps} steps] (session {sid})"
-            return f"{prefix} {result.output}{v_tag}"
+            task_result = format_result(result, verification, sid)
+            return task_result.to_json()
         except Exception as e:
             return f"Error running task: {e}"
 

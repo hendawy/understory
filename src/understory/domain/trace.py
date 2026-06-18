@@ -7,6 +7,7 @@ resulting observation. Provider-agnostic; no I/O here.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal, Protocol
@@ -46,6 +47,34 @@ def default_title(task: str) -> str:
         if line:
             return line[:60]
     return "untitled"
+
+
+@dataclass(frozen=True, slots=True)
+class TaskResult:
+    """Structured result of a delegate_task run — high signal, low tokens."""
+
+    status: SessionStatus
+    steps: int
+    session_id: str
+    output: str
+    files_changed: Sequence[str]
+    verification_status: str
+    verification_summary: str
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {
+                "status": self.status,
+                "steps": self.steps,
+                "session_id": self.session_id,
+                "output": self.output,
+                "files_changed": list(self.files_changed),
+                "verification": {
+                    "status": self.verification_status,
+                    "summary": self.verification_summary,
+                },
+            }
+        )
 
 
 class TraceStore(Protocol):
