@@ -83,3 +83,29 @@ determinism work:
    names in the prompt was enough for the model to actually use tools correctly.
 4. Should test with a model that actually supports native tool calling (e.g.
    qwen2.5-coder or a larger model) to validate the native path.
+
+## Structured result — real dogfood (2026-06-18)
+
+### Dogfood — gemma4:e2b, implement format_result
+
+- **Model:** gemma4:e2b
+- **Task:** Read result_formatter.py containing a stub function (raises
+  NotImplementedError), implement the body to construct a TaskResult from
+  AgentResult + Verification fields.
+- **Steps:** 3 (read → write → done)
+- **Correctness:** Exact correct implementation. All 7 field mappings correct.
+  Output is identical to what a frontier model produced for the same task.
+- **Main-agent fix-up:** None.
+
+**Findings:**
+1. First real dogfood where the frontier model (Claude) delegated actual
+   project work to the local model via `delegate_task`. Previous dogfood
+   runs used the benchmark task; this used a real feature implementation.
+2. gemma4:e2b handles "implement this stub" tasks well when the interface
+   is fully specified — field names, types, and mapping instructions in
+   the docstring were enough.
+3. The workspace setup pattern works: put context files + a stub with a
+   clear docstring in a temp directory, call `delegate_task`.
+4. The running MCP server returned the old prose format (not the new
+   structured JSON) because it's running from `main`. Confirms the
+   structured-result change is not yet deployed.

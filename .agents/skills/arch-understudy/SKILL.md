@@ -28,9 +28,10 @@ said in one sentence, use one sentence. If a bullet list works, don't write para
 3. **Always explain the approach before doing.** Before any non-trivial step: a short numbered plan (3–6 bullets), tradeoffs, and what you'd do first. Wait for "go" unless the user already signaled it.
 4. **Iterate one functionality at a time.** Don't bundle unrelated changes.
 5. **You write tests and interfaces.** You sketch protocols, types, contracts, and unit tests. You do **not** write implementation bodies.
-6. **Delegate implementation to an implementation sub-agent** — a separate, cheaper/faster model instance spawned via your framework's sub-agent mechanism. Brief it with: files to touch, the interfaces/tests you wrote, the guardrails it must pass.
-7. **The sub-agent must run guardrails to green** before reporting done: `uv run ty check`, `uv run pytest`, `uv run ruff format --check . && uv run ruff check .`.
-8. **You review the sub-agent's diff.** Check: security, simplicity, separation of concerns, code-to-interface, provider isolation. Reject anything that imports `ollama` outside `infrastructure/`. Reject leaky abstractions, premature generality, dead code, broad `except`.
+6. **Delegate implementation to the local model via `delegate_task`.** This IS dogfooding — the whole point of Understory. Set up a workspace directory with the interface stubs, test files, and any context files the local model needs. Call the `delegate_task` MCP tool with a clear task description. Do NOT use Claude sub-agents for implementation — that bypasses the product.
+7. **You review the local model's output.** Read the files it wrote. Check: correctness, security, simplicity, separation of concerns, code-to-interface, provider isolation. Reject anything that imports `ollama` outside `infrastructure/`. Reject leaky abstractions, premature generality, dead code, broad `except`.
+8. **You run guardrails** after copying the local model's output to the right locations: `uv run ty check`, `uv run pytest`, `uv run ruff format --check . && uv run ruff check .`. The local model can't run these itself — that's the frontier model's job.
+9. **Record dogfood results in LEARNINGS.md** — model, task, steps, what worked, what didn't.
 
 ## Project invariants (do not violate)
 
@@ -50,8 +51,8 @@ said in one sentence, use one sentence. If a bullet list works, don't write para
 2. **Branch first.** Before touching code for new work, create a branch: `git checkout -b <type>/<slug>` (e.g. `feat/agent-loop`, `fix/...`). Never work on `main`.
 3. **Propose approach** — 3–6 bullets, name the interfaces touched, name the tradeoff.
 4. On "go": **write tests + interfaces** (domain protocols, value types, failing unit tests).
-5. **Spawn an implementation sub-agent** to implement against the tests. Give it the file list, the contract, and the guardrail commands.
-6. **Review the diff.** Push back or accept.
+5. **Set up a workspace and call `delegate_task`** to have the local model implement against the tests. Include interface stubs, context files, and a clear task description.
+6. **Review the local model's output.** Read the files it wrote, check correctness.
 7. **Commit on the branch.** One slice = one branch = one commit (or a tight set).
 8. **Push and open a PR.** `git push -u origin <branch>` then `gh pr create`. Don't wait for the user to do this — it's part of the workflow.
 9. **Dogfood after merge.** Once the PR is merged, run the canned benchmark task (`benchmarks/user_service.md`) end-to-end via `delegate_task` on `main`. Record results in LEARNINGS.md under the feature heading. This is mandatory — the last dogfood run broke; never skip it.
@@ -59,22 +60,11 @@ said in one sentence, use one sentence. If a bullet list works, don't write para
 
 ## What you don't do
 
-- Don't write implementation bodies in `infrastructure/` or `application/` — that's the sub-agent's job.
+- Don't write implementation bodies — that's the local model's job via `delegate_task`.
+- Don't use Claude sub-agents for implementation — that's not dogfooding.
 - Don't add features the user didn't ask for.
 - Don't add abstractions for hypothetical futures.
 - Don't bundle refactors into feature work.
-- Don't run guardrails yourself for the sub-agent — make it do it.
-
-## Sub-agent brief template
-
-When spawning the implementation sub-agent, include:
-
-- **Goal:** one sentence.
-- **Files to create/modify:** explicit paths.
-- **Contract:** the interfaces and tests you wrote (paths + signatures).
-- **Constraints:** "no imports of `ollama` outside `infrastructure/ollama_provider.py`", "no broad except", etc.
-- **Done means:** `uv run ty check && uv run pytest && uv run ruff check . && uv run ruff format --check .` all green. Iterate until they are.
-- **Report:** diff summary + guardrail output.
 
 ## Foundation Models implementation plan
 
@@ -109,7 +99,7 @@ Apple's Foundation Models framework is Swift-only. Adding it as a second provide
 
 ## Provider binding
 
-Map the neutral roles above onto your runtime:
-
-- **Claude Code / Claude Agent SDK** — spawn the implementation sub-agent with the `Agent` tool, `subagent_type: "claude"`, `model: "sonnet"`.
-- **Other frameworks** — use the equivalent sub-agent / task-spawn primitive, targeting a cheaper/faster model than the one running this skill. The only requirement: the sub-agent can edit files, run shell guardrails, and report back.
+The "implementation sub-agent" in this skill is **Understory itself** — the local
+model running via Ollama, invoked through the `delegate_task` MCP tool. The frontier
+model (you) is the architect; the local model is the implementer. This is the
+product's intended use case, and using it this way is dogfooding.
