@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from understory.domain.trace import Step
-from understory.domain.verification import Verification, verify_outcome
+from understory.domain.verification import verify_outcome
 from understory.infrastructure.local_filesystem import LocalFilesystemWorkspace
 
 
@@ -18,7 +18,7 @@ def ws(tmp_path: Path) -> LocalFilesystemWorkspace:
 
 
 def _write_step(index: int, path: str, *, error: bool = False) -> Step:
-    obs = f"Error: something went wrong" if error else f"Observation: wrote {path}"
+    obs = "Error: something went wrong" if error else f"Observation: wrote {path}"
     return Step(
         index=index,
         reply=json.dumps({"tool": "write", "args": {"path": path, "content": "x"}}),

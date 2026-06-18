@@ -12,7 +12,7 @@ import pytest
 
 from understory.application.agent_runner import AgentRunner, action_schema
 from understory.application.workspace_tools import ReadTool, WriteTool
-from understory.domain.chat import Message, ModelName
+from understory.domain.chat import Message, ModelName, ToolDef
 from understory.infrastructure.local_filesystem import LocalFilesystemWorkspace
 from understory.infrastructure.ollama_provider import OllamaChatProvider
 
@@ -34,6 +34,7 @@ class RecordingProvider:
     def __init__(self, replies: Sequence[str]) -> None:
         self._replies = list(replies)
         self.schemas: list[Mapping[str, object] | None] = []
+        self.tool_defs: list[Sequence[ToolDef] | None] = []
 
     async def complete(
         self,
@@ -41,8 +42,10 @@ class RecordingProvider:
         messages: Sequence[Message],
         *,
         schema: Mapping[str, object] | None = None,
+        tools: Sequence[ToolDef] | None = None,
     ) -> Message:
         self.schemas.append(schema)
+        self.tool_defs.append(tools)
         return Message("assistant", self._replies.pop(0))
 
     async def list_models(self) -> Sequence[ModelName]:
@@ -50,16 +53,17 @@ class RecordingProvider:
 
 
 @pytest.mark.asyncio
-async def test_runner_passes_schema_each_turn(tmp_path: Path) -> None:
+async def test_runner_passes_tool_defs_each_turn(tmp_path: Path) -> None:
     ws = LocalFilesystemWorkspace(tmp_path)
     provider = RecordingProvider([json.dumps({"done": "ok"})])
 
     await AgentRunner(provider, [ReadTool(ws), WriteTool(ws)]).run("m", "task")
 
-    assert provider.schemas, "provider was never called"
-    assert provider.schemas[0] is not None
-    # The schema must reference the available tools.
-    assert "write" in json.dumps(provider.schemas[0])
+    assert provider.tool_defs, "provider was never called"
+    assert provider.tool_defs[0] is not None
+    # The tool defs must reference the available tools.
+    names = {td.name for td in provider.tool_defs[0]}
+    assert "write" in names
 
 
 # --- OllamaChatProvider maps schema -> native `format` ---

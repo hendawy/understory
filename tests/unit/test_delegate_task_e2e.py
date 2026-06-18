@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from understory.application.chat_service import ChatService
-from understory.domain.chat import Message, ModelName
+from understory.domain.chat import Message, ModelName, ToolDef
 from understory.infrastructure.mcp_server import build_server
 from understory.infrastructure.memory_store import InMemoryConversationStore
 
@@ -31,6 +31,7 @@ class ScriptedProvider:
         messages: Sequence[Message],
         *,
         schema: Mapping[str, object] | None = None,
+        tools: Sequence[ToolDef] | None = None,
     ) -> Message:
         return Message("assistant", self._replies.pop(0))
 

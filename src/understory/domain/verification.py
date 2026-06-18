@@ -14,7 +14,6 @@ from typing import Literal
 from understory.domain.trace import Step
 from understory.domain.workspace import Workspace, WorkspaceFileNotFound
 
-
 VerificationStatus = Literal["pass", "fail", "empty"]
 
 
@@ -31,10 +30,7 @@ class Verification:
             return "model never called write or edit — no files expected"
         if self.status == "pass":
             return f"verified {len(self.found_files)} file(s)"
-        return (
-            f"{len(self.missing_files)} file(s) missing: "
-            + ", ".join(self.missing_files)
-        )
+        return f"{len(self.missing_files)} file(s) missing: " + ", ".join(self.missing_files)
 
 
 def _extract_written_paths(steps: Sequence[Step]) -> list[str]:

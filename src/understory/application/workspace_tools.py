@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from understory.domain.chat import Schema
 from understory.domain.tool import Tool, ToolError
 from understory.domain.workspace import Workspace
 
@@ -18,12 +19,16 @@ class ReadTool(Tool):
 
     name = "read"
     description = "read(path): return the contents of a file"
+    parameters: Schema = {
+        "type": "object",
+        "properties": {"path": {"type": "string"}},
+        "required": ["path"],
+    }
 
     def __init__(self, workspace: Workspace) -> None:
         self._ws = workspace
 
     def run(self, args: Mapping[str, str]) -> str:
-        """Return the contents of *path*."""
         if "path" not in args:
             raise ToolError("read requires 'path'")
         return self._ws.read(args["path"])
@@ -34,12 +39,19 @@ class WriteTool(Tool):
 
     name = "write"
     description = "write(path, content): write content to a file, creating it if needed"
+    parameters: Schema = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string"},
+            "content": {"type": "string"},
+        },
+        "required": ["path", "content"],
+    }
 
     def __init__(self, workspace: Workspace) -> None:
         self._ws = workspace
 
     def run(self, args: Mapping[str, str]) -> str:
-        """Write *content* to *path* and return a confirmation string."""
         if "path" not in args:
             raise ToolError("write requires 'path'")
         if "content" not in args:
@@ -53,12 +65,20 @@ class EditTool(Tool):
 
     name = "edit"
     description = "edit(path, old, new): replace a unique occurrence of old with new in a file"
+    parameters: Schema = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string"},
+            "old": {"type": "string"},
+            "new": {"type": "string"},
+        },
+        "required": ["path", "old", "new"],
+    }
 
     def __init__(self, workspace: Workspace) -> None:
         self._ws = workspace
 
     def run(self, args: Mapping[str, str]) -> str:
-        """Replace *old* with *new* in *path* and return a confirmation string."""
         for key in ("path", "old", "new"):
             if key not in args:
                 raise ToolError(f"edit requires '{key}'")
@@ -71,12 +91,15 @@ class ListDirTool(Tool):
 
     name = "list_dir"
     description = "list_dir(path?): list entries directly under path (default '.')"
+    parameters: Schema = {
+        "type": "object",
+        "properties": {"path": {"type": "string"}},
+    }
 
     def __init__(self, workspace: Workspace) -> None:
         self._ws = workspace
 
     def run(self, args: Mapping[str, str]) -> str:
-        """Return a newline-joined list of directory entries."""
         path = args.get("path", ".")
         entries = self._ws.list_dir(path)
         return "\n".join(entries)

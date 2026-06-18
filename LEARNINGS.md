@@ -54,3 +54,32 @@ determinism work:
 2. The model either never calls `write` or goes straight to `{"done": "..."}`.
 3. Verified outcomes (#17) is now the critical next piece — the agent loop must
    check that claimed work actually exists before accepting "done".
+
+## Native tool calling + fence stripping
+
+### Dogfood — gemma4:e2b, user-service task (2026-06-18)
+
+- **Model:** gemma4:e2b
+- **Task:** identical to baseline (read users.json, create user_service.py + test_user_service.py)
+- **Steps:** 4 (read → write user_service.py → write test_user_service.py → done)
+- **JSON adherence:** 4/4 parsed via text fallback with fence stripping. Native
+  tool calling was passed to Ollama but gemma4:e2b responded with fenced text
+  JSON, not structured tool_calls. The fence-stripping fallback caught it.
+- **Correctness:** Both files written and correct. User dataclass has all 3 fields,
+  all 3 functions present with correct logic. Tests cover all functions.
+- **Main-agent fix-up:** None. First fully successful end-to-end run.
+
+**Delta from previous:**
+- Output: **fixed** — 2 files written vs 0. First time the model produced usable code.
+- Steps: 4 (same as constrained output run, but this time productive).
+- Tool protocol: gemma4:e2b doesn't use Ollama's native tool_calls — falls back
+  to text JSON. The fence-stripping fix was the key unblocking change.
+
+**Findings:**
+1. gemma4:e2b ignores Ollama's `tools` parameter and responds with text JSON
+   wrapped in markdown fences. Native tool calling with this model is a no-op.
+2. Fence stripping is essential — without it, the text fallback fails on every step.
+3. The combination of constrained-output-era prompt + fence stripping + tool arg
+   names in the prompt was enough for the model to actually use tools correctly.
+4. Should test with a model that actually supports native tool calling (e.g.
+   qwen2.5-coder or a larger model) to validate the native path.

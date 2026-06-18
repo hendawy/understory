@@ -19,17 +19,18 @@ from understory.application.workspace_tools import (
     ReadTool,
     WriteTool,
 )
-from understory.domain.chat import Message, ModelName
+from understory.domain.chat import Message, ModelName, ToolCall, ToolDef
 from understory.infrastructure.local_filesystem import LocalFilesystemWorkspace
 
 
 class ScriptedProvider:
-    """Replays a fixed list of assistant message contents in order."""
+    """Replays a fixed list of assistant messages in order."""
 
-    def __init__(self, replies: Sequence[str]) -> None:
-        self._replies = list(replies)
+    def __init__(self, replies: Sequence[Message | str]) -> None:
+        self._replies: list[Message | str] = list(replies)
         self.seen: list[list[Message]] = []
         self.schemas: list[Mapping[str, object] | None] = []
+        self.tool_defs: list[Sequence[ToolDef] | None] = []
 
     async def complete(
         self,
@@ -37,10 +38,15 @@ class ScriptedProvider:
         messages: Sequence[Message],
         *,
         schema: Mapping[str, object] | None = None,
+        tools: Sequence[ToolDef] | None = None,
     ) -> Message:
         self.seen.append(list(messages))
         self.schemas.append(schema)
-        return Message("assistant", self._replies.pop(0))
+        self.tool_defs.append(tools)
+        raw = self._replies.pop(0)
+        if isinstance(raw, str):
+            return Message("assistant", raw)
+        return raw
 
     async def list_models(self) -> Sequence[ModelName]:
         return ["scripted"]
@@ -174,3 +180,108 @@ async def test_max_steps_terminates(ws: LocalFilesystemWorkspace) -> None:
 
     assert result.status == "max_steps"
     assert result.steps == 3
+
+
+# --- Native tool-calling tests ---
+
+
+@pytest.mark.asyncio
+async def test_native_tool_call_dispatches(ws: LocalFilesystemWorkspace, tmp_path: Path) -> None:
+    """When the provider returns a Message with tool_calls, the runner
+    dispatches the tool and feeds the result back as a tool-role message."""
+    provider = ScriptedProvider(
+        [
+            Message(
+                "assistant",
+                "",
+                tool_calls=(ToolCall("write", {"path": "native.txt", "content": "hello"}),),
+            ),
+            json.dumps({"done": "wrote it"}),
+        ]
+    )
+    result = await AgentRunner(provider, _tools(ws)).run("m", "create native.txt")
+
+    assert result.status == "done"
+    assert (tmp_path / "native.txt").read_text() == "hello"
+
+
+@pytest.mark.asyncio
+async def test_native_tool_call_feeds_observation(ws: LocalFilesystemWorkspace) -> None:
+    """The observation from a native tool call is sent back as a tool-role message."""
+    ws.write("data.txt", "important-data")
+    provider = ScriptedProvider(
+        [
+            Message(
+                "assistant",
+                "",
+                tool_calls=(ToolCall("read", {"path": "data.txt"}),),
+            ),
+            json.dumps({"done": "read it"}),
+        ]
+    )
+    await AgentRunner(provider, _tools(ws)).run("m", "read data.txt")
+
+    second_turn = provider.seen[1]
+    assert any(m.role == "tool" and "important-data" in m.content for m in second_turn)
+
+
+@pytest.mark.asyncio
+async def test_native_unknown_tool_recovers(ws: LocalFilesystemWorkspace) -> None:
+    """Unknown tool name via native calling is fed back as an error, not raised."""
+    provider = ScriptedProvider(
+        [
+            Message(
+                "assistant",
+                "",
+                tool_calls=(ToolCall("nonexistent", {}),),
+            ),
+            json.dumps({"done": "recovered"}),
+        ]
+    )
+    result = await AgentRunner(provider, _tools(ws)).run("m", "do thing")
+    assert result.status == "done"
+
+
+@pytest.mark.asyncio
+async def test_native_tool_error_becomes_observation(ws: LocalFilesystemWorkspace) -> None:
+    """A tool error from native calling is surfaced as a tool-role error message."""
+    provider = ScriptedProvider(
+        [
+            Message(
+                "assistant",
+                "",
+                tool_calls=(ToolCall("read", {"path": "missing.txt"}),),
+            ),
+            json.dumps({"done": "handled"}),
+        ]
+    )
+    result = await AgentRunner(provider, _tools(ws)).run("m", "read missing")
+    assert result.status == "done"
+    assert any(m.role == "tool" and "Error" in m.content for m in provider.seen[1])
+
+
+@pytest.mark.asyncio
+async def test_fenced_json_is_parsed(ws: LocalFilesystemWorkspace, tmp_path: Path) -> None:
+    """Models that wrap JSON in markdown fences should still work."""
+    provider = ScriptedProvider(
+        [
+            '```json\n{"tool": "write", "args": {"path": "fenced.txt", "content": "works"}}\n```',
+            '```json\n{"done": "created"}\n```',
+        ]
+    )
+    result = await AgentRunner(provider, _tools(ws)).run("m", "create fenced.txt")
+    assert result.status == "done"
+    assert (tmp_path / "fenced.txt").read_text() == "works"
+
+
+@pytest.mark.asyncio
+async def test_runner_passes_tool_defs_to_provider(ws: LocalFilesystemWorkspace) -> None:
+    """The runner must pass ToolDef objects to the provider's complete() call."""
+    provider = ScriptedProvider([json.dumps({"done": "ok"})])
+    tools = _tools(ws)
+    await AgentRunner(provider, tools).run("m", "anything")
+
+    passed_defs = provider.tool_defs[0]
+    assert passed_defs is not None
+    names = {td.name for td in passed_defs}
+    assert names == {"read", "write", "edit", "list_dir"}

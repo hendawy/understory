@@ -7,7 +7,7 @@ from typing import Any, Protocol
 
 import ollama
 
-from understory.domain.chat import ChatProvider, Message, ModelName
+from understory.domain.chat import ChatProvider, Message, ModelName, ToolCall, ToolDef
 
 
 class _OllamaClient(Protocol):
@@ -17,9 +17,24 @@ class _OllamaClient(Protocol):
     keeps the real ``ollama.AsyncClient`` conforming.
     """
 
-    async def chat(self, *, model: str, messages: Any, format: Any = ...) -> Any: ...
+    async def chat(
+        self, *, model: str, messages: Any, format: Any = ..., tools: Any = ...
+    ) -> Any: ...
 
     async def list(self) -> Any: ...
+
+
+def _to_wire(m: Message) -> dict[str, Any]:
+    """Convert a domain Message to the Ollama wire format."""
+    wire: dict[str, Any] = {"role": m.role, "content": m.content}
+    if m.tool_calls:
+        wire["tool_calls"] = [
+            {"function": {"name": tc.name, "arguments": dict(tc.args)}} for tc in m.tool_calls
+        ]
+    if m.tool_call_id is not None:
+        # Ollama expects tool results with a name field identifying the tool.
+        wire["name"] = m.tool_call_id
+    return wire
 
 
 class OllamaChatProvider(ChatProvider):
@@ -32,14 +47,35 @@ class OllamaChatProvider(ChatProvider):
         messages: Sequence[Message],
         *,
         schema: Mapping[str, object] | None = None,
+        tools: Sequence[ToolDef] | None = None,
     ) -> Message:
-        wire = [{"role": m.role, "content": m.content} for m in messages]
+        wire = [_to_wire(m) for m in messages]
+        kwargs: dict[str, Any] = {"model": model, "messages": wire}
         if schema is not None:
-            response = await self._client.chat(model=model, messages=wire, format=schema)
-        else:
-            response = await self._client.chat(model=model, messages=wire)
+            kwargs["format"] = schema
+        if tools is not None:
+            kwargs["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": td.name,
+                        "description": td.description,
+                        "parameters": dict(td.parameters),
+                    },
+                }
+                for td in tools
+            ]
+        response = await self._client.chat(**kwargs)
         msg = response["message"]
-        return Message(role="assistant", content=msg["content"])
+        tool_calls: list[ToolCall] = []
+        for tc in msg.get("tool_calls") or []:
+            fn = tc.get("function", {})
+            tool_calls.append(ToolCall(name=fn["name"], args=fn.get("arguments", {})))
+        return Message(
+            role="assistant",
+            content=msg.get("content") or "",
+            tool_calls=tuple(tool_calls),
+        )
 
     async def list_models(self) -> Sequence[ModelName]:
         info = await self._client.list()
