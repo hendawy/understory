@@ -38,8 +38,8 @@ def _to_wire(m: Message) -> dict[str, Any]:
 
 
 class OllamaChatProvider(ChatProvider):
-    def __init__(self, client: _OllamaClient | None = None) -> None:
-        self._client: _OllamaClient = client or ollama.AsyncClient()
+    def __init__(self, client: _OllamaClient | None = None, host: str | None = None) -> None:
+        self._client: _OllamaClient = client or ollama.AsyncClient(host=host)
 
     async def complete(
         self,

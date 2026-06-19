@@ -109,3 +109,33 @@ determinism work:
 4. The running MCP server returned the old prose format (not the new
    structured JSON) because it's running from `main`. Confirms the
    structured-result change is not yet deployed.
+
+## Configurable Ollama host — real dogfood (2026-06-18)
+
+### Dogfood — gemma4:e2b, two-file edit (ollama_provider + mcp_server)
+
+- **Model:** gemma4:e2b
+- **Task:** Add `host` param to `OllamaChatProvider.__init__`, add env var
+  reading in `mcp_server.py`.
+- **Attempt 1:** Both files in one workspace, one task description.
+  - **Steps:** 15 (hit max_steps)
+  - **Result:** ollama_provider.py correct, mcp_server.py unchanged. Model
+    got task 1 right but missed task 2 entirely. Verification passed because
+    both files existed (they were pre-existing), but mcp_server.py was
+    written back without the requested changes.
+- **Attempt 2:** Single file (mcp_server.py only), focused task.
+  - **Steps:** 5 (done)
+  - **Result:** Both changes correct — `import os` added, env var reading
+    added. Import ordering wrong (`os` after `uuid`), fixed by ruff.
+- **Main-agent fix-up:** ruff auto-fixed import order. No manual code edits.
+
+**Findings:**
+1. Multi-file tasks with independent edits should be split into separate
+   `delegate_task` calls. The model handled one file well but dropped the
+   second when both were in the same task.
+2. Single-file, focused tasks work reliably — 3-5 steps, correct output.
+3. The model doesn't know about import ordering conventions — ruff catches
+   this, so it's fine. The frontier model runs guardrails, not the local model.
+4. Verification can give false positives on edit tasks — "file exists"
+   doesn't mean "file was correctly modified." Need content-level
+   verification for edits (future improvement).

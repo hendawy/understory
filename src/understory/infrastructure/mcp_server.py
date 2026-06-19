@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 from pathlib import Path
 
@@ -38,8 +39,9 @@ def build_server(
     Pass *trace_store* to share a specific store (so the web UI and the
     delegate_task tool see the same sessions); one is created otherwise.
     """
+    ollama_host = os.environ.get("UNDERSTORY_OLLAMA_HOST")
     service = service or ChatService(
-        provider=OllamaChatProvider(),
+        provider=OllamaChatProvider(host=ollama_host),
         store=InMemoryConversationStore(),
     )
     store = trace_store or InMemoryTraceStore()
